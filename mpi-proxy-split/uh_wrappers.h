@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *  Copyright (C) 2019-2020 by Twinkle Jain, Rohan garg, and Gene Cooperman *
+ *  jain.t@husky.neu.edu, rohgarg@ccs.neu.edu, gene@ccs.neu.edu             *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -15,23 +15,17 @@
  *  GNU Lesser General Public License for more details.                     *
  *                                                                          *
  *  You should have received a copy of the GNU Lesser General Public        *
- *  License in the files COPYING and COPYING.LESSER.  If not, see           *
+ *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef _PROCMAPSUTILS_H
-#define _PROCMAPSUTILS_H
+#ifndef UPPER_HALF_WRAPPERS_H
+#define UPPER_HALF_WRAPPERS_H
 
-#include "procmapsarea.h"
+extern int initialized;
 
-#ifndef EXTERNC
-# ifdef __cplusplus
-#  define EXTERNC extern "C"
-# else // ifdef __cplusplus
-#  define EXTERNC
-# endif // ifdef __cplusplus
-#endif // ifndef EXTERNC
+extern void initialize_wrappers();
+extern void reset_wrappers();
+extern LowerHalfInfo_t lh_info;
 
-EXTERNC int readMapsLine(int , Area* );
-
-#endif // #ifndef _PROCMAPSUTILS_H
+#endif // ifndef UPPER_HALF_WRAPPERS_H

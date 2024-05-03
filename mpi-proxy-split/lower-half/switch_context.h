@@ -26,12 +26,14 @@
 #include <sys/auxv.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
-#include "jassert.h"
+#include <unistd.h>
 
 /* Defined in asm/hwcap.h */
 #ifndef HWCAP2_FSGSBASE
 #define HWCAP2_FSGSBASE        (1 << 1)
 #endif
+
+#define ENV_VAR_FSGSBASE_ENABLED        "DMTCP_FSGSBASE_ENABLED"
 
 extern bool FsGsBaseEnabled;
 bool CheckAndEnableFsGsBase();
@@ -56,7 +58,7 @@ static inline unsigned long getFS(void)
     // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
     asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
   } else {
-    JWARNING(syscall(SYS_arch_prctl, ARCH_GET_FS, &fsbase) == 0) (JASSERT_ERRNO);
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsbase);
   }
   return fsbase;
 }
@@ -73,7 +75,7 @@ static inline void setFS(unsigned long fsbase)
     // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
     asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
   } else {
-    JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase) == 0) (JASSERT_ERRNO);
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
   }
 }
 
@@ -95,6 +97,7 @@ class SwitchContext
   private:
     unsigned long upperHalfFs; // The base value of the FS register of the upper half thread
     unsigned long lowerHalfFs; // The base value of the FS register of the lower half
+    bool jumpped;
 
   public:
     // Saves the current FS register value to 'upperHalfFs' and then
@@ -131,11 +134,5 @@ class SwitchContext
 #else /* ifdef __clang__ */
 # define NO_OPTIMIZE __attribute__((optimize(0)))
 #endif /* ifdef __clang__ */
-
-// This function splits the process by initializing the lower half with the
-// lh_proxy code. It returns 0 on success.
-extern int splitProcess();
-extern void updateVdsoLinkmapEntry(void *);
-extern void *getUhVdsoLdAddr();
 
 #endif // ifndef _SPLIT_PROCESS_H

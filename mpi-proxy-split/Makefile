@@ -17,7 +17,7 @@ ifeq (${MPICC},)
 endif
 
 # Targets to install:
-#   libmana.so (using mpi-wrappers/libmpiwrappers.a), lh_proxy, libmpistub.so,
+#   libmana.so (using mpi-wrappers/libmpiwrappers.a), libmpistub.so,
 #   mana_coordinator.o (needed to compile dmtcp_coordinator)
 
 # Subdirectories needed to install
@@ -29,9 +29,8 @@ WRAPPERS_SRCDIR=mpi-wrappers
 
 # As you add new files to your plugin library, add the object file names here.
 
-LIBOBJS = mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
-          record-replay.o seq_num.o \
-          split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
+LIBOBJS = uh_wrappers.o mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
+          record-replay.o seq_num.o lower-half/switch_context.o \
 
 #MANA_COORD_OBJS = mana_coordinator.o
 
@@ -58,8 +57,6 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 default: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	@make libmana.so
-	@make -C ${LOWER_HALF_SRCDIR} lh_proxy
-	@make -C ${LOWER_HALF_SRCDIR} lh_proxy_da
 	@make -C ${WRAPPERS_SRCDIR} libmpistub.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
@@ -85,13 +82,10 @@ vi vim: ${FILE}
 touch: ${FILE}
 	$@ $<
 
-gdb: ${basename lh_proxy.c ${FILE}}
-	$@ $<
-
 tests:
 	@make -C test/ default
 
-check: libmana.so ${LOWER_HALF_SRCDIR}/lh_proxy ./autotest.py
+check: libmana.so ./autotest.py
 	@make -C test/ default
 	@python ./autotest.py
 
@@ -102,10 +96,6 @@ ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so:
 	make -C ${WRAPPERS_SRCDIR} install
-${MANA_ROOT}/bin/lh_proxy:
-	make -C ${LOWER_HALF_SRCDIR} install
-${MANA_ROOT}/bin/gethostbyname_proxy:
-	make -C ${LOWER_HALF_SRCDIR}/gethostbyname-static install
 ${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
 	make -C ${WRAPPERS_SRCDIR} install
 
@@ -117,8 +107,6 @@ install: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	make ${MANA_ROOT}/lib/dmtcp/libmana.so
 	make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
-	make ${MANA_ROOT}/bin/lh_proxy
-	make ${MANA_ROOT}/bin/gethostbyname_proxy
 	make ${MANA_ROOT}/bin/mana_p2p_update_logs
 
 tidy:

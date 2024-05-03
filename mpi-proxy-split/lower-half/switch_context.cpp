@@ -19,29 +19,83 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef _MPI_COPYBITS_H
-#define _MPI_COPYBITS_H
+// Needed for process_vm_readv
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 
-#include <stdint.h>
-#include <ucontext.h>
+#include <linux/version.h>
+#include <asm/prctl.h>
+#include <sys/prctl.h>
+#include <sys/personality.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <libgen.h>
+#include <limits.h>
 #include <link.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ucontext.h>
+#include <sys/syscall.h>
+#include <sys/uio.h>
+#include <fcntl.h>
+#include <dlfcn.h>
+#include <link.h>
+#include <assert.h>
 
-#include "libproxy.h"  // In order to define DLOG
 
-extern int main(int argc, char *argv[], char *envp[]);
-extern int __libc_csu_init (int argc, char **argv, char **envp);
-extern void __libc_csu_fini (void);
+#include "switch_context.h"
+#include "lower_half_api.h"
 
-extern int __libc_start_main(int (*main)(int, char **, char **MAIN_AUXVEC_DECL),
-                             int argc,
-                             char **argv,
-                             __typeof (main) init,
-                             void (*fini) (void),
-                             void (*rtld_fini) (void),
-                             void *stack_end);
+bool FsGsBaseEnabled = false;
 
-extern LowerHalfInfo_t lh_info;
-extern MemRange_t lh_memRange;
+bool CheckAndEnableFsGsBase()
+{
+  pid_t childPid = fork();
+  assert(childPid != -1);
 
-#endif // #ifndef _MPI_COPYBITS_H
+  if (childPid == 0) {
+    unsigned long fsbase = -1;
+    // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
+    // fails with SIGILL).
+    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+    if (fsbase != (unsigned long)-1) {
+      exit(0);
+    }
+
+    // Also test wrfsbase in case it generates SIGILL as well.
+    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+    exit(1);
+  }
+
+  int status = 0;
+  assert(waitpid(childPid, &status, 0) == childPid);
+
+  if (status == 0) {
+    FsGsBaseEnabled = true;
+  } else {
+    FsGsBaseEnabled = false;
+  }
+  return FsGsBaseEnabled;
+}
+
+SwitchContext::SwitchContext(unsigned long lowerHalfFs)
+{
+  jumpped = 0;
+  if (lowerHalfFs > 0) {
+    this->lowerHalfFs = lowerHalfFs;
+    this->upperHalfFs = getFS();
+    setFS(this->lowerHalfFs);
+    jumpped = 1;
+  }
+}
+
+SwitchContext::~SwitchContext()
+{
+  if (jumpped) {
+    setFS(this->upperHalfFs);
+    jumpped = 0;
+  }
+}

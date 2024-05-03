@@ -22,9 +22,8 @@
 #ifndef _MPI_NEXTFUNC_H
 #define _MPI_NEXTFUNC_H
 
-#include "split_process.h"
 #include "mpi_plugin.h"
-#include "libproxy.h"
+#include "lower_half_api.h"
 
 #define EAT(x)
 #define REM(x) x
@@ -71,6 +70,7 @@
 // addresses of the functions) might change post restart; so, we cannot simply
 // remember the old addresses. We need to update the addresses post restart.
 #ifndef NEXT_FUNC
+#if 0
 # define NEXT_FUNC(func)                                                       \
   ({                                                                           \
     static __typeof__(&MPI_##func)_real_MPI_## func =                          \
@@ -80,6 +80,12 @@
     }                                                                          \
     _real_MPI_ ## func;                                                        \
   })
+#else
+# define NEXT_FUNC(func)                                                       \
+  ({                                                                           \
+    (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);                           \
+  })
+#endif
 #endif // ifndef NEXT_FUNC
 
 // Convenience macro to define simple wrapper functions
